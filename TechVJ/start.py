@@ -32,24 +32,23 @@ async def start(client, message):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
 
-    # Check if user is new and add to DB
+    # Check if the user is new and add to the database
     if not await db.is_user_exist(user_id):
         referrer = None
-        # Check if user started from a referral link
-        if len(message.command) > 1:
+        if len(message.command) > 1:  # Check for referral link
             referrer = message.command[1]
             await db.add_user(user_id, first_name, referrer)
             try:
                 await client.send_message(
                     referrer,
-                    f"🎉 Great news! {first_name} has joined the bot using your referral link. Keep inviting to earn more rewards!"
+                    f"🎉 Great news! **{first_name}** has started bot from your referral link.\nYou Will Get 10% Of Earning Of This User\nKeep inviting to earn more rewards!"
                 )
-            except:
-                pass
+            except Exception as e:
+                print(f"Error sending referral notification: {e}")
         else:
             await db.add_user(user_id, first_name)
 
-    # Check if user joined channels
+    # Check if the user joined the required channels
     required_channels = [channel for channel in REFERRAL_CHANNELS if channel]
     for channel in required_channels:
         if not await is_user_joined_channel(client, user_id, channel):
@@ -58,30 +57,37 @@ async def start(client, message):
                 [InlineKeyboardButton("✅ Check Membership", callback_data="check_membership")]
             ])
             await message.reply(
-                "💡 To start using this bot and earn rewards, please join the required channels below.\n"
-                "After joining, click **Check Membership** to proceed.",
+                (
+                    "💡 **Action Required!**\n\n"
+                    "To start using this bot and earn rewards, please join the required channels below.\n\n"
+                    "After joining, click **Check Membership** to proceed."
+                ),
                 reply_markup=join_button
             )
             return
 
-    # Welcome message with buttons
+    # Main menu buttons
     buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💰 Your Wallet", callback_data="wallet")],
-        [InlineKeyboardButton("📤 Withdrawal", callback_data="withdraw")],
-        [InlineKeyboardButton("🎯 Earn Money", callback_data="earn")],
-        [InlineKeyboardButton("👥 Referral Program", callback_data="referral")],
-        [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily_bonus")]
+        [InlineKeyboardButton("💰 View Wallet", callback_data="wallet"), InlineKeyboardButton("📤 Withdraw Funds", callback_data="withdraw")],
+        [InlineKeyboardButton("🎯 Earn Money", callback_data="earn"), InlineKeyboardButton("👥 Referral Program", callback_data="referral")],
+        [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily_bonus"), InlineKeyboardButton("ℹ️ Help & Support", callback_data="help")],
+        [InlineKeyboardButton("🛒 Use Balance (Tg Premium/Recharges)", callback_data="use_balance")]
     ])
+
+    # Welcome message
     welcome_message = (
-        f"🎉 Welcome, {first_name}!\n\n"
-        f"💵 This bot helps you earn money without any investment. Start earning today and explore the features below:\n\nn"
-        f"• Manage your wallet\n"
-        f"• Withdraw your earnings\n"
-        f"• Earn through our exciting programs\n"
-        f"• Invite friends to earn more rewards\n"
-        f"• Collect daily bonuses\n\n"
-        f"Let’s get started!"
+        f"🎉 **Welcome, {first_name}!**\n\n"
+        f"💵 **Start your journey to earning money effortlessly!**\n\n"
+        f"Here's what you can do:\n"
+        f"• Manage and track your wallet.\n"
+        f"• Withdraw your earnings securely.\n"
+        f"• Participate in exciting earning programs.\n"
+        f"• Invite friends and earn extra rewards.\n"
+        f"• Claim daily bonuses for additional income.\n"
+        f"• Use your balance for exclusive services like Telegram Premium or mobile recharges.\n\n"
+        f"🔔 **Note:** Fake or duplicate accounts are not allowed. If detected, you may be blocked from using this bot."
     )
+
     await message.reply(welcome_message, reply_markup=buttons)
 
 

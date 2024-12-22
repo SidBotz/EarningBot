@@ -88,7 +88,7 @@ async def start(client, message):
 @Client.on_callback_query(filters.regex("check_membership"))
 async def check_membership(client, callback_query):
     user_id = callback_query.from_user.id
-    required_channels = [channel for channel in REFERRAL_CHANNELS.split() if channel]
+    required_channels =  [channel for channel in REFERRAL_CHANNELS if channel]
     
     # Check membership for all channels
     for channel in required_channels:

@@ -21,7 +21,7 @@ async def is_user_joined_channel(client, user_id, channel):
     Check if the user is a member of the specified Telegram channel.
     """
     try:
-        user = await client.get_chat_member(AUTH_CHANNEL, query.from_user.id)
+        user = await client.get_chat_member(channel, user_id)
         return True
     except UserNotParticipant:
         return False

@@ -14,7 +14,8 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from config import REFERRAL_CHANNELS, RefferalAmount as earnings_range, TASKS
 from pyrogram.types import CallbackQuery
 
-
+from pyrogram import enums
+from pyrogram.errors import *
 async def is_user_joined_channel(client, user_id, channel):
     """
     Check if the user is a member of the specified Telegram channel.

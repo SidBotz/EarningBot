@@ -187,7 +187,7 @@ async def referral_program_callback(client, callback_query: CallbackQuery):
     # Generate the referral link
     bot_username = (await client.get_me()).username
     referral_link = f"https://t.me/{bot_username}?start={user_id}"
-
+    rflink = f"https://t.me/{bot_username}?start={user_id}"
 
     # Referral message with notice
     referral_message = (
@@ -200,7 +200,7 @@ async def referral_program_callback(client, callback_query: CallbackQuery):
         f"⚠️ **Notice:**\n"
         f"Please don't use fake accounts to invite yourself. If we detect fraudulent activity, you will be permanently banned from using the bot."
     )
-    share_url =f"https://t.me/share/url?url=%F0%9F%94%A5%20I%27m%20earning%20daily%20%E2%82%B910-%E2%82%B920%20by%20completing%20tasks%20on%20this%20amazing%20bot%21%20%F0%9F%A4%91%20%20%0A%0A%F0%9F%92%B5%20Earn%20extra%20rewards%20by%20inviting%20your%20friends%21%20Use%20my%20referral%20link%20to%20start%3A%20%20%0A%0A%F0%9F%91%89%20{refferal_link}%20%20%0A%0AStart%20your%20earnings%20today%21"
+    share_url =f"https://t.me/share/url?url=%F0%9F%94%A5%20I%27m%20earning%20daily%20%E2%82%B910-%E2%82%B920%20by%20completing%20tasks%20on%20this%20amazing%20bot%21%20%F0%9F%A4%91%20%20%0A%0A%F0%9F%92%B5%20Earn%20extra%20rewards%20by%20inviting%20your%20friends%21%20Use%20my%20referral%20link%20to%20start%3A%20%20%0A%0A%F0%9F%91%89%20{rflink}%20%20%0A%0AStart%20your%20earnings%20today%21"
     # Buttons for sharing and navigating
     buttons = InlineKeyboardMarkup([
         [InlineKeyboardButton("📢 Share Referral", url=share_url)],

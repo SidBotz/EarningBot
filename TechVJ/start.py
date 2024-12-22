@@ -217,3 +217,69 @@ async def referral_program_callback(client, callback_query: CallbackQuery):
 
     # Edit the message with referral info
     await callback_query.message.edit_text(referral_message, reply_markup=buttons, disable_web_page_preview=True)
+
+
+
+
+from math import ceil
+
+@Client.on_callback_query(filters.regex("earn"))
+async def earn_money_callback(client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+
+    # Pagination setup
+    tasks_per_page = 4
+    page = int(callback_query.data.split("_")[-1]) if "_" in callback_query.data else 1
+    total_tasks = len(TASKS)
+    total_pages = ceil(total_tasks / tasks_per_page)
+    start_index = (page - 1) * tasks_per_page
+    end_index = start_index + tasks_per_page
+
+    # Generate task buttons
+    task_buttons = [
+        InlineKeyboardButton(
+            f"💼 Task {i+1}",
+            callback_data=f"task_{i+1}"
+        )
+        for i in range(start_index, min(end_index, total_tasks))
+    ]
+
+    # Arrange buttons in 2x2 format
+    task_rows = [task_buttons[i:i+2] for i in range(0, len(task_buttons), 2)]
+
+    # Navigation buttons
+    navigation_buttons = []
+    if page > 1:
+        navigation_buttons.append(InlineKeyboardButton("⬅️ Back", callback_data=f"earn_{page - 1}"))
+    if page < total_pages:
+        navigation_buttons.append(InlineKeyboardButton("➡️ Next", callback_data=f"earn_{page + 1}"))
+
+    # Combine all buttons
+    buttons = InlineKeyboardMarkup(task_rows + [navigation_buttons] if navigation_buttons else task_rows)
+
+    # Message about earning
+    earn_message = (
+        "💰 **Earn Money**\n\n"
+        "📋 Here are the tasks you can complete to earn money:\n\n"
+        "✅ Per task, you will earn up to ₹1.\n"
+        f"💼 Total available tasks: {total_tasks}\n\n"
+        "Click on a task to start earning!"
+    )
+
+    await callback_query.message.edit_text(earn_message, reply_markup=buttons)
+
+# Example handler for task button (add logic for each task)
+@Client.on_callback_query(filters.regex(r"task_\d+"))
+async def handle_task_callback(client, callback_query: CallbackQuery):
+    task_id = int(callback_query.data.split("_")[1])
+    task_name = TASKS[task_id - 1]  # Adjust for 0-based indexing
+
+    # Respond with task details
+    await callback_query.message.edit_text(
+        f"📝 **Task {task_id}: {task_name}**\n\n"
+        "Complete this task to earn ₹1. Follow the instructions and complete it to start earning!",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("🔙 Back to Tasks", callback_data="earn_1")]
+        ])
+    )
+

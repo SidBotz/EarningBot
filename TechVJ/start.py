@@ -11,7 +11,9 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.db import db
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import REFERRAL_CHANNELS  # List of channels (chnl, chnll, chnlll)
+from config import REFERRAL_CHANNELS, RefferalAmount as earnings_range
+from pyrogram.types import CallbackQuery
+
 
 async def is_user_joined_channel(client, user_id, channel):
     """
@@ -113,3 +115,105 @@ async def check_membership(client, callback_query):
         "Happy earning!"
     )
     await callback_query.message.edit_text(welcome_message, reply_markup=buttons)
+
+# Home Callback Handler
+# Home Callback Handler
+@Client.on_callback_query(filters.regex("home"))
+async def home_callback(client, callback_query: CallbackQuery):
+    first_name = callback_query.from_user.first_name
+
+    # Re-create the start buttons
+    buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💰 Your Wallet", callback_data="wallet")],
+        [InlineKeyboardButton("📤 Withdrawal", callback_data="withdraw")],
+        [InlineKeyboardButton("🎯 Earn Money", callback_data="earn")],
+        [InlineKeyboardButton("👥 Referral Program", callback_data="referral")],
+        [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily_bonus")]
+    ])
+    welcome_message = (
+        f"🎉 Welcome back, {first_name}!\n\n"
+        f"💵 Explore the features below to manage your wallet and earnings:\n\n"
+        f"• Manage your wallet\n"
+        f"• Withdraw your earnings\n"
+        f"• Earn through our exciting programs\n"
+        f"• Invite friends to earn more rewards\n"
+        f"• Collect daily bonuses\n\n"
+        f"Let’s get started!"
+    )
+
+    # Edit the message back to home
+    await callback_query.message.edit_text(welcome_message, reply_markup=buttons)
+
+
+
+
+
+
+
+
+# Wallet Callback Handler
+@Client.on_callback_query(filters.regex("wallet"))
+async def wallet_callback(client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+
+    # Fetch user's wallet balance from the database
+    balance = await db.get_balance(user_id)
+    balance = balance if balance is not None else 0.0  # Default to 0.0 if no balance found
+
+    # Wallet information
+    wallet_message = (
+        f"💳 **Your Wallet**\n\n"
+        f"💰 Current Balance: ₹{balance:.2f}\n\n"
+        f"Use the buttons below to navigate."
+    )
+
+    # Buttons for navigation
+    buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("🔙 Back to Home", callback_data="home")]
+    ])
+
+    # Edit the message with wallet info
+    await callback_query.message.edit_text(wallet_message, reply_markup=buttons)
+
+
+
+
+
+@Client.on_callback_query(filters.regex("referral"))
+async def referral_program_callback(client, callback_query: CallbackQuery):
+    user_id = callback_query.from_user.id
+    first_name = callback_query.from_user.first_name
+
+    # Generate the referral link
+    bot_username = (await client.get_me()).username
+    referral_link = f"https://t.me/{bot_username}?start={user_id}"
+
+
+    # Referral message with notice
+    referral_message = (
+        f"👥 **Referral Program**\n\n"
+        f"Earn {earnings_range} for every user who joins using your referral link and completes the tasks.\n\n"
+        f"🔗 **Your Referral Link:**\n"
+        f"[{referral_link}]({referral_link})\n\n"
+        f"💡 Share this link with your friends and start earning now!\n"
+        f"🚀 The more you invite, the more you earn!\n\n"
+        f"⚠️ **Notice:**\n"
+        f"Please don't use fake accounts to invite yourself. If we detect fraudulent activity, you will be permanently banned from using the bot."
+    )
+
+    # Share text for referral
+    share_text = (
+        f"🔥 I'm earning daily ₹10-₹20 by completing tasks on this amazing bot! 🤑\n\n"
+        f"💵 Earn extra rewards by inviting your friends! Use my referral link to start:\n\n"
+        f"👉 {referral_link}\n\n"
+        f"Start your earnings today!"
+    )
+
+    # Buttons for sharing and navigating
+    buttons = InlineKeyboardMarkup([
+        [InlineKeyboardButton("📢 Share Referral", url=f"https://t.me/share/url?url={referral_link}&text={share_text}")],
+        [InlineKeyboardButton("🔙 Back to Home", callback_data="home")]
+    ])
+
+    # Edit the message with referral info
+    await callback_query.message.edit_text(referral_message, reply_markup=buttons, disable_web_page_preview=True)

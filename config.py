@@ -18,3 +18,4 @@ DB_NAME = os.environ.get("DB_NAME", "EarningBot")
 
 # If You Want Error Message In Your Personal Message Then Turn It True Else If You Don't Want Then Flase
 ERROR_MESSAGE = bool(os.environ.get('ERROR_MESSAGE', True))
+RefferalAmount = os.environ.get("RefferalAmount", "Upto 5 ₹")

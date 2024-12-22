@@ -11,7 +11,7 @@ from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton, Message
 from database.db import db
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from config import REFERRAL_CHANNELS, RefferalAmount as earnings_range
+from config import REFERRAL_CHANNELS, RefferalAmount as earnings_range, TASKS
 from pyrogram.types import CallbackQuery
 
 

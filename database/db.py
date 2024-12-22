@@ -11,7 +11,9 @@ class Database:
         self.wallet_col = self.db.wallet
         self.earnings_col = self.db.earnings  # Earnings collection for tracking
         self.tasks_col = self.db.tasks  # Tasks collection for tracking user tasks
+        self.task_time_col = self.db.task_time  # Collection for task done times by domain
 
+     
     def new_user(self, id, name):
         return dict(
             id=id,
@@ -129,6 +131,16 @@ class Database:
             {'$addToSet': {'invited': int(invitee_id)}}
         )
 
+    async def get_inviter(self, user_id):
+        """
+        Retrieve the inviter ID of a specific user.
+        """
+        # Search for a user whose 'invited' list contains the given user_id
+        inviter = await self.users_col.find_one({'invited': int(user_id)}, {'id': 1})
+        if inviter:
+            return inviter['id']
+        return None  # Return None if no inviter found
+
     async def total_invited(self, user_id):
         """Return the total number of users invited by a specific user."""
         user = await self.users_col.find_one({'id': int(user_id)})
@@ -200,6 +212,52 @@ class Database:
                 stats[country][state] = 0
             stats[country][state] += 1
         return stats
+
+
+    # New Functions for Task Time Tracking
+    async def task_done_time(self, user_id, domain, done_time):
+        """
+        Log the time a task was completed for a specific user and domain.
+        """
+        await self.task_time_col.insert_one({
+            'user_id': int(user_id),
+            'domain': domain,
+            'done_time': datetime.strptime(done_time, '%Y-%m-%d %H:%M:%S')
+        })
+
+    async def time_left_24hr(self, user_id, domain):
+        """
+        Check how much time is left to complete 24 hours since the last task for the domain.
+        """
+        record = await self.task_time_col.find_one(
+            {'user_id': int(user_id), 'domain': domain},
+            sort=[('done_time', -1)]
+        )
+        if record:
+            last_done_time = record['done_time']
+            elapsed_time = datetime.utcnow() - last_done_time
+            remaining_time = timedelta(hours=24) - elapsed_time
+            if remaining_time.total_seconds() > 0:
+                hours, remainder = divmod(remaining_time.total_seconds(), 3600)
+                minutes, seconds = divmod(remainder, 60)
+                return f"{int(hours):02}:{int(minutes):02}:{int(seconds):02}"
+        return False
+
+    async def is_24hr_completed(self, user_id, domain):
+        """
+        Check if 24 hours have passed since the last task for the user and domain.
+        """
+        record = await self.task_time_col.find_one(
+            {'user_id': int(user_id), 'domain': domain},
+            sort=[('done_time', -1)]
+        )
+        if record:
+            last_done_time = record['done_time']
+            elapsed_time = datetime.utcnow() - last_done_time
+            return elapsed_time >= timedelta(hours=24)
+        return True  # If no data exists, treat as 24-hour completed
+
+
 
 
 db = Database(DB_URI, DB_NAME)

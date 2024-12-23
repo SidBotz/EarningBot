@@ -32,23 +32,24 @@ async def start(client, message):
     user_id = message.from_user.id
     first_name = message.from_user.first_name
 
-    # Check if the user is new and add to the database
+    # Check if user is new and add to DB
     if not await db.is_user_exist(user_id):
         referrer = None
-        if len(message.command) > 1:  # Check for referral link
+        # Check if user started from a referral link
+        if len(message.command) > 1:
             referrer = message.command[1]
             await db.add_user(user_id, first_name, referrer)
             try:
                 await client.send_message(
                     referrer,
-                    f"🎉 Great news! **{first_name}** has started bot from your referral link.\nYou Will Get 10% Of Earning Of This User\nKeep inviting to earn more rewards!"
+                    f"🎉 Great news! {first_name} has joined the bot using your referral link. Keep inviting to earn more rewards!"
                 )
-            except Exception as e:
-                print(f"Error sending referral notification: {e}")
+            except:
+                pass
         else:
             await db.add_user(user_id, first_name)
 
-    # Check if the user joined the required channels
+    # Check if user joined channels
     required_channels = [channel for channel in REFERRAL_CHANNELS if channel]
     for channel in required_channels:
         if not await is_user_joined_channel(client, user_id, channel):
@@ -57,37 +58,30 @@ async def start(client, message):
                 [InlineKeyboardButton("✅ Check Membership", callback_data="check_membership")]
             ])
             await message.reply(
-                (
-                    "💡 **Action Required!**\n\n"
-                    "To start using this bot and earn rewards, please join the required channels below.\n\n"
-                    "After joining, click **Check Membership** to proceed."
-                ),
+                "💡 To start using this bot and earn rewards, please join the required channels below.\n"
+                "After joining, click **Check Membership** to proceed.",
                 reply_markup=join_button
             )
             return
 
-    # Main menu buttons
+    # Welcome message with buttons
     buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("💰 View Wallet", callback_data="wallet"), InlineKeyboardButton("📤 Withdraw Funds", callback_data="withdraw")],
-        [InlineKeyboardButton("🎯 Earn Money", callback_data="earn"), InlineKeyboardButton("👥 Referral Program", callback_data="referral")],
-        [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily_bonus"), InlineKeyboardButton("ℹ️ Help & Support", callback_data="help")],
-        [InlineKeyboardButton("🛒 Use Balance (Tg Premium/Recharges)", callback_data="use_balance")]
+        [InlineKeyboardButton("💰 Your Wallet", callback_data="wallet")],
+        [InlineKeyboardButton("📤 Withdrawal", callback_data="withdraw")],
+        [InlineKeyboardButton("🎯 Earn Money", callback_data="earn")],
+        [InlineKeyboardButton("👥 Referral Program", callback_data="referral")],
+        [InlineKeyboardButton("🎁 Daily Bonus", callback_data="daily_bonus")]
     ])
-
-    # Welcome message
     welcome_message = (
-        f"🎉 **Welcome, {first_name}!**\n\n"
-        f"💵 **Start your journey to earning money effortlessly!**\n\n"
-        f"Here's what you can do:\n"
-        f"• Manage and track your wallet.\n"
-        f"• Withdraw your earnings securely.\n"
-        f"• Participate in exciting earning programs.\n"
-        f"• Invite friends and earn extra rewards.\n"
-        f"• Claim daily bonuses for additional income.\n"
-        f"• Use your balance for exclusive services like Telegram Premium or mobile recharges.\n\n"
-        f"🔔 **Note:** Fake or duplicate accounts are not allowed. If detected, you may be blocked from using this bot."
+        f"🎉 Welcome, {first_name}!\n\n"
+        f"💵 This bot helps you earn money without any investment. Start earning today and explore the features below:\n\nn"
+        f"• Manage your wallet\n"
+        f"• Withdraw your earnings\n"
+        f"• Earn through our exciting programs\n"
+        f"• Invite friends to earn more rewards\n"
+        f"• Collect daily bonuses\n\n"
+        f"Let’s get started!"
     )
-
     await message.reply(welcome_message, reply_markup=buttons)
 
 
@@ -151,6 +145,27 @@ async def home_callback(client, callback_query: CallbackQuery):
     await callback_query.message.edit_text(welcome_message, reply_markup=buttons)
 
 
+@Client.on_callback_query(filters.regex("use_balance"))
+async def use_balance(client, callback_query):
+    user_id = callback_query.from_user.id
+    balance = await db.get_balance(user_id)
+
+    if balance and balance > 0:
+        buttons = InlineKeyboardMarkup([
+            [InlineKeyboardButton("✨ Buy Telegram Premium", callback_data="buy_premium")],
+            [InlineKeyboardButton("📱 Recharge Mobile", callback_data="recharge_mobile")],
+            [InlineKeyboardButton("🔙 Back to Menu", callback_data="back_to_menu")]
+        ])
+        await callback_query.message.edit_text(
+            f"💳 **Your Wallet Balance:** ₹{balance:.2f}\n\n"
+            f"🛍️ Use your balance for the following services:\n"
+            f"1. Purchase Telegram Premium.\n"
+            f"2. Recharge your mobile number.\n\n"
+            f"Choose an option below to proceed.",
+            reply_markup=buttons
+        )
+    else:
+        await callback_query.answer("❌ You have insufficient balance to use this feature.", show_alert=True)
 
 
 
@@ -266,18 +281,27 @@ async def earn_money_callback(client, callback_query: CallbackQuery):
 
     await callback_query.message.edit_text(earn_message, reply_markup=buttons)
 
-# Example handler for task button (add logic for each task)
+
 @Client.on_callback_query(filters.regex(r"task_\d+"))
 async def handle_task_callback(client, callback_query: CallbackQuery):
-    task_id = int(callback_query.data.split("_")[1])
-    task_name = TASKS[task_id - 1]  # Adjust for 0-based indexing
+    task_id = int(callback_query.data.split("_")[1])  # Extract task ID from callback data
+    task_data = TASKS[task_id - 1]  # Adjust for 0-based indexing
+    task_name = task_data["name"]
+    task_link = task_data["link"]
+    task_api = task_data["api"]
 
     # Respond with task details
     await callback_query.message.edit_text(
         f"📝 **Task {task_id}: {task_name}**\n\n"
-        "Complete this task to earn ₹1. Follow the instructions and complete it to start earning!",
+        "Complete this task to earn ₹1. Follow the instructions below:\n\n"
+        "1️⃣ Click **Complete Task** to perform the task.\n"
+        "2️⃣ If you're unsure, click **How to Complete** for detailed instructions.\n\n"
+        "⚡ Once done, your earnings will be credited!",
         reply_markup=InlineKeyboardMarkup([
-            [InlineKeyboardButton("🔙 Back to Tasks", callback_data="earn_1")]
+            [InlineKeyboardButton("✅ Complete Task", url=task_link)],  # Button to perform the task
+            [InlineKeyboardButton("❓ How to Complete", url=task_api)],  # Button for task instructions
+            [InlineKeyboardButton("🔙 Back to Tasks", callback_data="earn_1")]  # Button to go back to tasks
         ])
     )
+
 

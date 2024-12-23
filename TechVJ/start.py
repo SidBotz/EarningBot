@@ -16,6 +16,8 @@ from pyrogram.types import CallbackQuery
 
 from pyrogram import enums
 from pyrogram.errors import *
+
+from utils import get_verify_shorted_link
 async def is_user_joined_channel(client, user_id, channel):
     """
     Check if the user is a member of the specified Telegram channel.
@@ -293,8 +295,10 @@ async def handle_task_callback(client, callback_query: CallbackQuery):
     task_id = int(callback_query.data.split("_")[1])  # Extract task ID from callback data
     task_data = TASKS[task_id - 1]  # Adjust for 0-based indexing
     task_name = task_data["name"]
-    task_link = task_data["link"]
-    task_api = task_data["api"]
+    site_link = task_data["link"]
+    site_api = task_data["api"]
+    verify_link = f"t.me/botxhub"
+    task_link = await get_verify_shorted_link(verify_link, site_link, site_api)
 
     # Respond with task details
     await callback_query.message.edit_text(

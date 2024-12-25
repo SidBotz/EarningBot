@@ -316,6 +316,185 @@ async def handle_task_callback(client, callback_query: CallbackQuery):
 
 
 
+
+
+from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram import Client, filters
+from datetime import datetime
+
+@Client.on_callback_query(filters.regex(r"withdraw"))
+async def withdraw_callback(client, callback_query):
+    user_id = callback_query.from_user.id
+
+    # Fetch the user's balance
+    balance = await db.get_balance(user_id)
+    if balance < 5:
+        # Inform the user if balance is insufficient
+        await callback_query.message.edit_text(
+            "💸 **Insufficient Balance!**\n\n"
+            "You need at least ₹5 in your wallet to make a withdrawal.\n"
+            "👉 Complete tasks to increase your balance and qualify for withdrawals.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🎯 Earn Money", callback_data="earn")]
+            ])
+        )
+        return
+
+    # Check if UPI is saved
+    user_data = await db.users_col.find_one({"id": user_id})
+    user_upi = user_data.get("upi") if user_data else None
+
+    if not user_upi:
+        # If no UPI is saved, prompt to add one
+        await callback_query.message.edit_text(
+            "🏦 **No UPI ID Found!**\n\n"
+            "Please add your UPI ID to proceed with the withdrawal.",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("➕ Add UPI ID", callback_data="add_upi")]
+            ])
+        )
+        return
+
+    # If UPI is saved, show options
+    await callback_query.message.edit_text(
+        f"🏦 **Withdraw to UPI ID:**\n\n"
+        f"📌 **Current UPI:** `{user_upi}`\n\n"
+        "Select your UPI ID to send the withdrawal request.",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton(user_upi, callback_data="confirm_withdraw")],
+            [InlineKeyboardButton("✏️ Change UPI ID", callback_data="change_upi")]
+        ])
+    )
+
+
+# Handler for Adding a New UPI ID
+@Client.on_callback_query(filters.regex(r"add_upi"))
+async def add_upi_callback(client, callback_query):
+    user_id = callback_query.from_user.id
+
+    # Ask user for UPI ID
+    await client.ask(
+        callback_query.message.chat.id,
+        "🏦 **Add UPI ID**\n\n"
+        "Please send your UPI ID in the format `mobilenumber@upi` or `mobilenumber@ybl`.\n\n"
+        "❗️ Ensure the UPI ID is valid and linked to your account.",
+        filters=filters.text,
+        reply_to_message_id=callback_query.message.message_id
+    )
+
+    async def validate_upi(user, text):
+        if "@" not in text or not text.split("@")[0].isdigit() or len(text.split("@")[0]) != 10:
+            await client.send_message(user, "❌ Invalid UPI ID! Please try again.")
+            return False
+
+        # Check if UPI ID is already in DB
+        upi_exists = await db.users_col.find_one({"upi": text})
+        if upi_exists:
+            await client.send_message(
+                user,
+                "❌ This UPI ID is already linked to another account.\n\n"
+                "Each UPI ID can only be linked to one account."
+            )
+            return False
+        return text
+
+    upi_id = await validate_upi(callback_query.message.chat.id, callback_query.data)
+    if upi_id:
+        await db.users_col.update_one({"id": user_id}, {"$set": {"upi": upi_id}})
+        await callback_query.message.edit_text(
+            "✅ **UPI ID Added Successfully!**\n\n"
+            "You can now request withdrawals."
+        )
+
+
+# Handler for Changing UPI ID
+@Client.on_callback_query(filters.regex(r"change_upi"))
+async def change_upi_callback(client, callback_query):
+    user_id = callback_query.from_user.id
+
+    await callback_query.message.edit_text(
+        "⚠️ **Change UPI ID Confirmation**\n\n"
+        "If you change your UPI ID, your wallet balance will be reset to ₹0.\n\n"
+        "Do you want to proceed?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Confirm", callback_data="confirm_change_upi")],
+            [InlineKeyboardButton("❌ Cancel", callback_data="withdraw")]
+        ])
+    )
+
+
+@Client.on_callback_query(filters.regex(r"confirm_change_upi"))
+async def confirm_change_upi(client, callback_query):
+    user_id = callback_query.from_user.id
+
+    # Reset wallet balance and ask for a new UPI ID
+    await db.wallet_col.update_one({"id": user_id}, {"$set": {"balance": 0}})
+    await client.ask(
+        callback_query.message.chat.id,
+        "🏦 **Change UPI ID**\n\n"
+        "Please send your new UPI ID in the format `mobilenumber@upi` or `mobilenumber@ybl`.",
+        filters=filters.text,
+        reply_to_message_id=callback_query.message.message_id
+    )
+
+
+# Handler for Confirming Withdrawal
+@Client.on_callback_query(filters.regex(r"confirm_withdraw"))
+async def confirm_withdraw_callback(client, callback_query):
+    user_id = callback_query.from_user.id
+    balance = await db.get_balance(user_id)
+
+    await client.ask(
+        callback_query.message.chat.id,
+        f"💸 **Withdrawal Request**\n\n"
+        f"Your current balance: ₹{balance}\n\n"
+        "Enter the amount you want to withdraw.",
+        filters=filters.text,
+        reply_to_message_id=callback_query.message.message_id
+    )
+
+    async def process_withdraw_request(user, text):
+        try:
+            amount = float(text)
+        except ValueError:
+            await client.send_message(user, "❌ Invalid amount! Please try again.")
+            return False
+
+        if amount > balance:
+            await client.send_message(
+                user,
+                f"❌ Insufficient Balance! You only have ₹{balance}."
+            )
+            return False
+
+        if amount < 5:
+            await client.send_message(
+                user,
+                "❌ Minimum withdrawal amount is ₹5. Please try again."
+            )
+            return False
+
+        # Send withdrawal request to log channel
+        log_channel_id = -1001234567890  # Replace with your channel ID
+        upi = await db.users_col.find_one({"id": user_id}, {"upi": 1})["upi"]
+        await client.send_message(
+            log_channel_id,
+            f"💸 **New Withdrawal Request**\n\n"
+            f"👤 User ID: {user_id}\n"
+            f"📱 UPI ID: {upi}\n"
+            f"💰 Amount: ₹{amount}\n"
+            f"🕒 Requested at: {datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')}"
+        )
+
+        # Deduct balance
+        await db.withdraw_coin(amount, user_id)
+        await client.send_message(
+            user,
+            "✅ **Withdrawal Request Submitted!**\n\n"
+            "Your request has been submitted and will be processed shortly."
+        )
+
+
 @Client.on_callback_query(filters.regex(r"daily_bonus"))
 async def daily_bonus_callback(client, callback_query: CallbackQuery):
     user_id = callback_query.from_user.id

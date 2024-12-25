@@ -1,7 +1,7 @@
 import motor.motor_asyncio
 from datetime import datetime
 from config import DB_NAME, DB_URI
-
+from datetime import timedelta
 class Database:
     
     def __init__(self, uri, database_name):
@@ -12,6 +12,7 @@ class Database:
         self.earnings_col = self.db.earnings  # Earnings collection for tracking
         self.tasks_col = self.db.tasks  # Tasks collection for tracking user tasks
         self.task_time_col = self.db.task_time  # Collection for task done times by domain
+        self.upi_col = self.db.upi  # New collection for UPI data
 
      
     def new_user(self, id, name):
@@ -30,6 +31,57 @@ class Database:
             id=id,
             balance=0.0,  # Default balance as a float
         )
+    def new_upi(self, user_id, upi_id):
+        return dict(
+            user_id=user_id,
+            upi_id=upi_id,
+        )
+
+    async def add_upi(self, user_id, upi_id):
+        if len(upi_id.split("@")) != 2:
+            raise ValueError("Invalid UPI format.")
+
+        existing = await self.upi_col.find_one({"upi_id": upi_id})
+        if existing:
+            raise ValueError("UPI ID is already registered.")
+
+        upi_data = self.new_upi(user_id, upi_id)
+        await self.upi_col.insert_one(upi_data)
+
+    async def get_upi(self, user_id):
+        upi_data = await self.upi_col.find_one({"user_id": user_id})
+        if upi_data:
+            return upi_data["upi_id"]
+        return None
+
+    async def change_upi(self, user_id, new_upi_id):
+        if len(new_upi_id.split("@")) != 2:
+            raise ValueError("Invalid UPI format.")
+
+        existing = await self.upi_col.find_one({"upi_id": new_upi_id})
+        if existing:
+            raise ValueError("UPI ID is already registered.")
+
+        await self.upi_col.update_one(
+            {"user_id": user_id},
+            {"$set": {"upi_id": new_upi_id}},
+            upsert=True
+        )
+
+    async def delete_upi(self, user_id):
+        await self.upi_col.delete_one({"user_id": user_id})
+
+    async def is_upi_exist(self, user_id):
+        upi_data = await self.upi_col.find_one({"user_id": user_id})
+        return bool(upi_data)
+
+    async def delete_user(self, user_id):
+        await self.users_col.delete_many({'id': int(user_id)})
+        await self.wallet_col.delete_many({'id': int(user_id)})
+        await self.earnings_col.delete_many({'user_id': int(user_id)})
+        await self.tasks_col.delete_many({'user_id': int(user_id)})
+        await self.delete_upi(user_id)
+
     
     async def add_user(self, id, name):
         user = self.new_user(id, name)
@@ -54,12 +106,6 @@ class Database:
 
     async def get_all_users(self):
         return self.users_col.find({})
-
-    async def delete_user(self, user_id):
-        await self.users_col.delete_many({'id': int(user_id)})
-        await self.wallet_col.delete_many({'id': int(user_id)})
-        await self.earnings_col.delete_many({'user_id': int(user_id)})
-        await self.tasks_col.delete_many({'user_id': int(user_id)})
 
     async def set_session(self, id, session):
         await self.users_col.update_one({'id': int(id)}, {'$set': {'session': session}})
@@ -249,13 +295,6 @@ class Database:
         """
         record = await self.task_time_col.find_one(
             {'user_id': int(user_id), 'domain': domain},
-            sort=[('done_time', -1)]
-        )
-        if record:
-            last_done_time = record['done_time']
-            elapsed_time = datetime.utcnow() - last_done_time
-            return elapsed_time >= timedelta(hours=24)
-        return True  # If no data exists, treat as 24-hour completed
 
 
 

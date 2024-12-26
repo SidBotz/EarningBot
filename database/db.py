@@ -295,6 +295,14 @@ class Database:
         """
         record = await self.task_time_col.find_one(
             {'user_id': int(user_id), 'domain': domain},
+            sort=[('done_time', -1)]
+        )
+        if record:
+            last_done_time = record['done_time']
+            elapsed_time = datetime.utcnow() - last_done_time
+            return elapsed_time >= timedelta(hours=24)
+        return True  # If no data exists, treat as 24-hour completed
+
 
 
 

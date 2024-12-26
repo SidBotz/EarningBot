@@ -1,5 +1,5 @@
 import logging, asyncio, os, re, random, pytz, aiohttp, requests, string, json, http.client
-rom bs4 import BeautifulSoup
+from bs4 import BeautifulSoup
 from shortzy import Shortzy
 from datetime import datetime, date
 from typing import List

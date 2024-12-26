@@ -328,7 +328,7 @@ async def withdraw_callback(client, callback_query):
 
     # Fetch the user's balance
     balance = await db.get_balance(user_id)
-    if balance < 5:
+    if balance > 5:
         # Inform the user if balance is insufficient
         await callback_query.message.edit_text(
             "💸 **Insufficient Balance!**\n\n"
